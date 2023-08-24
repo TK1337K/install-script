@@ -22,7 +22,7 @@ init_var() {
   # 项目目录
   TP_DATA="/tpdata/"
 
-  STATIC_HTML="https://github.com/trojanpanel/install-script/releases/download/v1.0.0/html.tar.gz"
+  STATIC_HTML="https://github.com/trojanpanel/install-script/releases/download/v1.0/html.tar.gz"
 
   # web
   WEB_PATH="/tpdata/web/"
@@ -72,7 +72,7 @@ init_var() {
   UI_NGINX_DATA="${TROJAN_PANEL_UI_DATA}nginx/"
   UI_NGINX_CONFIG="${UI_NGINX_DATA}default.conf"
   trojan_panel_ui_port=8888
-  ui_https=0
+  ui_https=1
   trojan_panel_ip="127.0.0.1"
   trojan_panel_server_port=8081
 
@@ -334,10 +334,10 @@ install_caddy2() {
     wget --no-check-certificate -O ${WEB_PATH}html.tar.gz -N ${STATIC_HTML} &&
       tar -zxvf ${WEB_PATH}html.tar.gz -k -C ${WEB_PATH}
 
-    read -r -p "请输入Caddy的端口(默认:80): " caddy_port
-    [[ -z "${caddy_port}" ]] && caddy_port=80
-    read -r -p "请输入Caddy的转发端口(默认:8863): " caddy_remote_port
-    [[ -z "${caddy_remote_port}" ]] && caddy_remote_port=8863
+    # read -r -p "请输入Caddy的端口(默认:80): " caddy_port
+    # [[ -z "${caddy_port}" ]] && caddy_port=80
+    # read -r -p "请输入Caddy的转发端口(默认:8863): " caddy_remote_port
+    # [[ -z "${caddy_remote_port}" ]] && caddy_remote_port=8863
 
     echo_content yellow "提示：请确认域名已经解析到本机 否则可能安装失败"
     while read -r -p "请输入你的域名(必填): " domain; do
@@ -348,23 +348,6 @@ install_caddy2() {
       fi
     done
 
-    read -r -p "请输入你的邮箱(可选): " your_email
-
-    while read -r -p "请选择设置证书的方式?(1/自动申请和续签证书 2/手动设置证书路径 默认:1/自动申请和续签证书): " ssl_option; do
-      if [[ -z ${ssl_option} || ${ssl_option} == 1 ]]; then
-        while read -r -p "请选择申请证书的方式(1/acme 2/zerossl 默认:1/acme): " ssl_module_type; do
-          if [[ -z "${ssl_module_type}" || ${ssl_module_type} == 1 ]]; then
-            ssl_module="acme"
-            CADDY_CERT_DIR="${CERT_PATH}certificates/acme-v02.api.letsencrypt.org-directory/"
-            break
-          elif [[ ${ssl_module_type} == 2 ]]; then
-            ssl_module="zerossl"
-            CADDY_CERT_DIR="${CERT_PATH}certificates/acme.zerossl.com-v2-dv90/"
-            break
-          else
-            echo_content red "不可以输入除1和2之外的其他字符"
-          fi
-        done
 
         cat >${CADDY_CONFIG} <<EOF
 {
@@ -489,143 +472,6 @@ install_caddy2() {
     }
 }
 EOF
-        break
-      elif [[ ${ssl_option} == 2 ]]; then
-        install_custom_cert "${domain}"
-        cat >${CADDY_CONFIG} <<EOF
-{
-    "admin":{
-        "disabled":true
-    },
-    "logging":{
-        "logs":{
-            "default":{
-                "writer":{
-                    "output":"file",
-                    "filename":"${CADDY_LOG}error.log"
-                },
-                "level":"ERROR"
-            }
-        }
-    },
-    "storage":{
-        "module":"file_system",
-        "root":"${CERT_PATH}"
-    },
-    "apps":{
-        "http":{
-            "http_port": ${caddy_port},
-            "servers":{
-                "srv0":{
-                    "listen":[
-                        ":${caddy_port}"
-                    ],
-                    "routes":[
-                        {
-                            "match":[
-                                {
-                                    "host":[
-                                        "${domain}"
-                                    ]
-                                }
-                            ],
-                            "handle":[
-                                {
-                                    "handler":"static_response",
-                                    "headers":{
-                                        "Location":[
-                                            "https://{http.request.host}:${caddy_remote_port}{http.request.uri}"
-                                        ]
-                                    },
-                                    "status_code":301
-                                }
-                            ]
-                        }
-                    ]
-                },
-                "srv1":{
-                    "listen":[
-                        ":${caddy_remote_port}"
-                    ],
-                    "routes":[
-                        {
-                            "handle":[
-                                {
-                                    "handler":"subroute",
-                                    "routes":[
-                                        {
-                                            "match":[
-                                                {
-                                                    "host":[
-                                                        "${domain}"
-                                                    ]
-                                                }
-                                            ],
-                                            "handle":[
-                                                {
-                                                    "handler":"file_server",
-                                                    "root":"${WEB_PATH}",
-                                                    "index_names":[
-                                                        "index.html",
-                                                        "index.htm"
-                                                    ]
-                                                }
-                                            ],
-                                            "terminal":true
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ],
-                    "tls_connection_policies":[
-                        {
-                            "match":{
-                                "sni":[
-                                    "${domain}"
-                                ]
-                            }
-                        }
-                    ],
-                    "automatic_https":{
-                        "disable":true
-                    }
-                }
-            }
-        },
-        "tls":{
-            "certificates":{
-                "automate":[
-                    "${domain}"
-                ],
-                "load_files":[
-                    {
-                        "certificate":"${CADDY_CERT_DIR}${domain}/${domain}.crt",
-                        "key":"${CADDY_CERT_DIR}${domain}/${domain}.key"
-                    }
-                ]
-            },
-            "automation":{
-                "policies":[
-                    {
-                        "issuers":[
-                            {
-                                "module":"${ssl_module}",
-                                "email":"${your_email}"
-                            }
-                        ]
-                    }
-                ]
-            }
-        }
-    }
-}
-EOF
-        break
-      else
-        echo_content red "不可以输入除1和2之外的其他字符"
-      fi
-    done
 
     if [[ -n $(lsof -i:${caddy_port},443 -t) ]]; then
       kill -9 "$(lsof -i:${caddy_port},443 -t)"
@@ -837,8 +683,8 @@ install_cert() {
       echo_content yellow "1. 安装Caddy 2（自动申请/续签证书）"
       echo_content yellow "2. 手动设置证书路径"
       echo_content yellow "3. 不设置"
-      read -r -p "请选择(默认:3): " whether_install_cert
-      [[ -z "${whether_install_cert}" ]] && whether_install_cert=3
+      read -r -p "请选择(默认:1): " whether_install_cert
+      [[ -z "${whether_install_cert}" ]] && whether_install_cert=1
 
       case ${whether_install_cert} in
       1)
@@ -970,7 +816,7 @@ install_trojan_panel_ui() {
 
     # read -r -p "请输入Trojan Panel前端端口(默认:8888): " trojan_panel_ui_port
     # [[ -z "${trojan_panel_ui_port}" ]] && trojan_panel_ui_port="8888"
-    while read -r -p "请选择Trojan Panel前端是否开启https?(0/关闭 1/开启 默认:0/关闭): " ui_https; do
+       while read -r -p "请选择Trojan Panel前端是否开启https?(0/关闭 1/开启 默认:1/开启): " ui_https; do
       if [[ -z ${ui_https} || ${ui_https} == 1 ]]; then
         install_cert
         domain=$(cat "${DOMAIN_FILE}")
@@ -1925,7 +1771,7 @@ main() {
   echo_content skyBlue "Github: https://github.com/trojanpanel"
   echo_content skyBlue "Docs: https://trojanpanel.github.io"
   echo_content red "\n=============================================================="
-  echo_content yellow "0. 一键快速安装"
+  echo_content yellow "0. 一键安装"
   echo_content yellow "1. 安装Trojan Panel前端"
   echo_content yellow "2. 安装Trojan Panel后端"
   echo_content yellow "3. 安装Trojan Panel内核"
