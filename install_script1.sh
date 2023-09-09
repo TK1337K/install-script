@@ -863,7 +863,7 @@ server {
     }
 }
 EOF
-        break
+        #break
       else
         if [[ ${ui_https} != 0 ]]; then
           echo_content red "不可以输入除0和1之外的其他字符"
@@ -890,7 +890,7 @@ server {
     }
 }
 EOF
-          break
+         # break
         fi
       fi
     #done
@@ -1804,7 +1804,7 @@ main() {
   # echo_content yellow "25. 版本查询"
   # read -r -p "请选择:" 
 
-  selectInstall_type = 0
+  selectInstall_type=0
 
   case ${selectInstall_type} in
   0)
